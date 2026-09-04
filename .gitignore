@@ -1,0 +1,63 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv
+*.egg-info/
+dist/
+build/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Data and models (large files)
+data/
+models/
+*.pkl
+*.joblib
+*.h5
+
+# Reports and logs
+reports/
+logs/
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# MLflow
+mlruns/
+.mlruns/
+
+# DVC
+.dvc
+
+# Teacher-only materials (not for students)
+COURSE_READY_CHECKLIST.md
+docs/teacher-guide.md
+docs/TEACHER_*.md
+docs/lecture-00-helper-notes.md
+docs/lecture-00-introduction.md
+docs/TOOLS_detailed-guide.md
+
+# Bot and internal tools (not for public repo)
+/bot/
+bot/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Temporary
+*.tmp
+.cache/

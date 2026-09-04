@@ -1,0 +1,209 @@
+# Занятие 16. Оркестрация и автопереобучение
+
+> Занятие бонусное: работающий flow даёт +4 балла к итоговому проекту.
+> Если пара снята из-за переносов — методичка проходится самостоятельно.
+
+## Проблема
+
+У вас есть всё по отдельности: детектор дрейфа, пайплайн обучения,
+реестр моделей, эндпоинт `/reload`. Связывает их сейчас человек,
+который помнит, что нужно раз в неделю запустить `make drift`
+и посмотреть результат.
+
+Сегодня записываем логику этого человека кодом.
+
+## Правило занятия
+
+Прежде чем писать код, сформулируйте, что автоматизируете:
+
+> Переобучать **не по расписанию, а по причине**.
+> И выкатывать только если новая модель действительно лучше.
+
+Оба ограничения нужны. Переобучение по расписанию однажды поймает
+чёрную пятницу и испортит модель. Промоут без сравнения однажды
+выкатит модель хуже текущей.
+
+## Шаг 1. Prefect
+
+```bash
+pip install "prefect>=2.16,<3.0"
+```
+
+Два понятия:
+
+* `@task` — шаг с повторными попытками и своим логом;
+* `@flow` — сценарий, вызывающий шаги.
+
+Почему Prefect, а не Airflow: Airflow распространён шире, но требует
+базы, шедулера и веб-сервера. Prefect запускается как обычный Python-скрипт,
+а понятия те же. Хотите Airflow — см. домашнее задание.
+
+## Шаг 2. Шаги
+
+`src/flows/retrain.py`:
+
+```python
+from prefect import flow, get_run_logger, task
+
+
+@task(retries=2, retry_delay_seconds=30)
+def collect_fresh_data(out: str = "data/raw/fresh.csv") -> str:
+    """В учебном проекте данные генерируются; в реальном — выгружаются из хранилища."""
+    subprocess.run(
+        [sys.executable, "-m", "src.data.generate", "--drift", "--out", out, "--n", "5000"],
+        check=True, cwd=resolve("."),
+    )
+    return out
+
+
+@task
+def check_drift(current_csv: str) -> dict:
+    subprocess.run(
+        [sys.executable, "-m", "src.monitoring.drift", "--current", current_csv],
+        check=True, cwd=resolve("."),
+    )
+    return json.load(open(resolve("reports/drift.json"), encoding="utf-8"))
+
+
+@task
+def retrain() -> dict:
+    subprocess.run(["dvc", "repro"], check=True, cwd=resolve("."))
+    return json.load(open(resolve("reports/eval_metrics.json"), encoding="utf-8"))["metrics"]
+```
+
+Обратите внимание на `retries=2` у сбора данных: сеть моргает,
+и падать из-за этого всему сценарию не нужно. У `retrain` повторов нет —
+если обучение упало, повтор даст тот же результат.
+
+## Шаг 3. Сценарий
+
+```python
+@flow(name="churn-retrain")
+def retrain_flow(service_url: str = "http://localhost:8000", min_gain: float = 0.005) -> str:
+    log = get_run_logger()
+
+    fresh = collect_fresh_data()
+    drift = check_drift(fresh)
+    if not drift["dataset_drift"]:
+        log.info("дрейфа нет — переобучение не требуется")
+        return "skipped"
+
+    log.info("дрейф в %s признаках: %s", drift["n_drifted_columns"], drift["drifted_columns"])
+    new_metrics = retrain()
+    old_metrics = current_production_metrics()
+    gain = new_metrics["roc_auc"] - old_metrics.get("roc_auc", 0.0)
+
+    if gain < min_gain:
+        log.warning("новая модель не лучше (прирост %.4f < %.4f) — прод не трогаем", gain, min_gain)
+        return "rejected"
+
+    promote_and_reload(new_metrics, service_url)
+    log.info("модель промоутнута, прирост ROC-AUC %.4f", gain)
+    return "promoted"
+```
+
+Три выхода, и все три обязаны работать:
+
+| Исход | Когда |
+|---|---|
+| `skipped` | дрейфа нет, ничего делать не нужно |
+| `rejected` | дрейф есть, переобучились, но модель не лучше — прод не трогаем |
+| `promoted` | дрейф есть, модель лучше — выкатываем |
+
+**`min_gain` — не перестраховка.** Разница ROC-AUC в 0.001 между двумя
+обучениями это шум. Промоут по такому «улучшению» означает случайную
+замену модели в проде без причины.
+
+## Шаг 4. Промоут и перезагрузка
+
+```python
+@task
+def promote_and_reload(metrics: dict, service_url: str) -> None:
+    json.dump(metrics, open(resolve("reports/production_metrics.json"), "w"), indent=2)
+    try:
+        httpx.post(f"{service_url}/reload", timeout=30).raise_for_status()
+    except Exception as exc:
+        get_run_logger().warning("сервис не ответил на /reload: %s", exc)
+```
+
+В реальном проекте вместо записи в файл здесь был бы перевод версии
+в `Production` через `MlflowClient().transition_model_version_stage(...)` —
+то, что вы делали руками на занятии 7.
+
+## Шаг 5. Главная ловушка занятия
+
+Сравнивать модели нужно **на одних и тех же данных**.
+
+Частая ошибка: взять метрику текущей продовой модели из отчёта
+трёхмесячной давности и сравнить с метрикой новой модели на свежем тесте.
+Сравнение бессмысленно — данные разные.
+
+Правильно: обе модели прогоняются по одной и той же тестовой выборке
+в момент принятия решения. Реализуйте это явно, если ваш `retrain()`
+этого не делает.
+
+## Шаг 6. Запуск и три сценария
+
+```bash
+python -m src.flows.retrain
+```
+
+Проверьте все три исхода:
+
+```bash
+# 1) skipped: подсуньте в качестве current обычные данные без дрейфа
+python -m src.data.generate --out data/raw/fresh.csv --n 5000
+python -m src.flows.retrain
+
+# 2) rejected: поставьте min_gain=0.5 — прирост никогда не дотянет
+# 3) promoted: min_gain=0.0 и пустой production_metrics.json
+```
+
+Сценарий `rejected` — самый важный. Проверьте, что flow действительно
+отказался выкатывать модель и сказал об этом в логе.
+
+## Шаг 7. Расписание
+
+```bash
+prefect server start          # в отдельном терминале, UI на localhost:4200
+```
+
+```python
+if __name__ == "__main__":
+    retrain_flow.serve(name="nightly-retrain", cron="0 3 * * *")
+```
+
+Каждую ночь в 3:00 flow проверит дрейф. Обратите внимание:
+**по расписанию запускается проверка, а не переобучение**.
+Переобучение случится только если для него есть причина.
+
+## Что сдать
+
+- [ ] `src/flows/retrain.py` с тремя исходами
+- [ ] Продемонстрированы все три: `skipped`, `rejected`, `promoted`
+- [ ] `min_gain` работает и обоснован
+- [ ] Сравнение моделей идёт на одних данных
+- [ ] Логи через `get_run_logger()`, не `print`
+
+## Домашнее задание (1,5–2 ч, необязательное)
+
+1. Добавьте условие безопасности: не переобучать, если свежих данных
+   меньше 1000 строк или доля пропусков выше 5 %. Дрейф из-за сбоя
+   выгрузки не должен запускать переобучение.
+2. Добавьте уведомление об исходе: запись в `reports/retrain_log.jsonl`
+   строкой на прогон — время, исход, метрики, список дрейфующих признаков.
+3. Опишите в `docs/runbook.md` раздел «Автопереобучение»:
+   что делает flow, когда запускается, как его остановить,
+   что делать, если он промоутнул плохую модель.
+4. Для желающих: перенесите тот же сценарий на Airflow.
+   Сравните письменно: что оказалось проще, что сложнее.
+
+## Полезное
+
+| Что | Зачем |
+|---|---|
+| `@task(retries=2)` | повтор шага при сбое |
+| `get_run_logger()` | логи, видимые в UI Prefect |
+| `flow.serve(cron=...)` | запуск по расписанию |
+| `prefect server start` | UI на http://localhost:4200 |
+| Правило | по расписанию запускается **проверка**, не переобучение |

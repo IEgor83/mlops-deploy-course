@@ -1,0 +1,984 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MLOps: Полная лекция</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .presentation {
+            width: 100%;
+            max-width: 1200px;
+            aspect-ratio: 16/9;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .slide {
+            display: none;
+            width: 100%;
+            height: 100%;
+            padding: 40px;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            flex-direction: column;
+            justify-content: flex-start;
+            animation: fadeIn 0.5s;
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+
+        .slide.active {
+            display: flex;
+        }
+
+        .slide.title-slide {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-align: center;
+            justify-content: space-between;
+            padding: 40px;
+        }
+
+        .slide.content-slide {
+            background: white;
+        }
+
+        .slide.two-column {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+        }
+
+        .column {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .slide h1 {
+            color: #667eea;
+            margin-bottom: 25px;
+            font-size: 2.2em;
+            border-bottom: 3px solid #764ba2;
+            padding-bottom: 15px;
+            line-height: 1.3;
+        }
+
+        .slide h2 {
+            color: #764ba2;
+            margin-top: 15px;
+            margin-bottom: 12px;
+            font-size: 1.4em;
+            line-height: 1.3;
+        }
+
+        .slide h3 {
+            color: #667eea;
+            margin-top: 12px;
+            margin-bottom: 8px;
+            font-size: 1.1em;
+            line-height: 1.3;
+        }
+
+        .slide p, .slide li {
+            font-size: 1em;
+            line-height: 1.6;
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .slide ul {
+            margin-left: 25px;
+            margin-bottom: 15px;
+        }
+
+        .slide li {
+            margin-bottom: 6px;
+        }
+
+        .speaker {
+            text-align: center;
+            font-size: 1em;
+            margin-top: 30px;
+        }
+
+        .speaker-name {
+            font-size: 1.3em;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+
+        .speaker-title {
+            font-size: 0.9em;
+            opacity: 0.9;
+            line-height: 1.5;
+            margin-bottom: 15px;
+        }
+
+        .title-slide .title-main {
+            font-size: 3em;
+            font-weight: bold;
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+            line-height: 1.2;
+        }
+
+        .title-slide .title-sub {
+            font-size: 1.5em;
+            opacity: 0.95;
+            margin-bottom: 30px;
+            line-height: 1.2;
+        }
+
+        .controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 40px;
+            background: #f0f0f0;
+            border-top: 1px solid #ddd;
+        }
+
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1em;
+            transition: background 0.3s;
+        }
+
+        button:hover {
+            background: #764ba2;
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .slide-counter {
+            font-size: 1.1em;
+            color: #333;
+        }
+
+        .highlight {
+            background: #fffacd;
+            padding: 2px 6px;
+            border-radius: 3px;
+        }
+
+        .code-block {
+            background: #f5f5f5;
+            border-left: 4px solid #667eea;
+            padding: 12px;
+            margin: 10px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85em;
+            overflow-x: auto;
+            border-radius: 5px;
+            line-height: 1.4;
+        }
+
+        .box {
+            background: #f9f9f9;
+            padding: 15px;
+            border-radius: 5px;
+            border-left: 4px solid #667eea;
+            margin: 10px 0;
+            font-size: 0.95em;
+        }
+
+        .box.success {
+            border-left-color: #4caf50;
+            background: #f1f8f4;
+        }
+
+        .box.error {
+            border-left-color: #f44336;
+            background: #fef4f4;
+        }
+
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 10px 0;
+            font-size: 0.9em;
+        }
+
+        .table th {
+            background: #667eea;
+            color: white;
+            padding: 8px;
+            text-align: left;
+        }
+
+        .table td {
+            border-bottom: 1px solid #ddd;
+            padding: 8px;
+        }
+
+        .table tr:hover {
+            background: #f5f5f5;
+        }
+
+        .emoji {
+            font-size: 1.2em;
+            margin-right: 5px;
+        }
+
+        .flex-container {
+            display: flex;
+            gap: 15px;
+            margin: 10px 0;
+        }
+
+        .flex-item {
+            flex: 1;
+            background: #f9f9f9;
+            padding: 12px;
+            border-radius: 5px;
+            border: 1px solid #e0e0e0;
+            font-size: 0.95em;
+        }
+
+        .flex-item h3 {
+            margin-top: 0;
+            margin-bottom: 8px;
+            font-size: 1em;
+        }
+
+        .question-box {
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 5px;
+            font-size: 0.95em;
+        }
+
+        .question-box .question {
+            font-weight: bold;
+            font-size: 1em;
+            color: #1976d2;
+            margin-bottom: 8px;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 12px;
+            margin: 15px 0;
+        }
+
+        .stat-box {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px;
+            border-radius: 5px;
+            text-align: center;
+        }
+
+        .stat-box .number {
+            font-size: 2em;
+            font-weight: bold;
+        }
+
+        .stat-box .label {
+            font-size: 0.85em;
+            opacity: 0.9;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .timeline {
+            display: flex;
+            justify-content: space-between;
+            position: relative;
+            margin: 20px 0;
+        }
+
+        .timeline::before {
+            content: '';
+            position: absolute;
+            top: 15px;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: #667eea;
+            z-index: -1;
+        }
+
+        .timeline-item {
+            text-align: center;
+            position: relative;
+            font-size: 0.9em;
+        }
+
+        .timeline-dot {
+            width: 30px;
+            height: 30px;
+            background: #667eea;
+            border-radius: 50%;
+            margin: 0 auto 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 0.9em;
+        }
+
+        .timeline-label {
+            font-size: 0.85em;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="presentation">
+        <!-- Slide 1: Title -->
+        <div class="slide title-slide active">
+            <div>
+                <div class="title-main">🚀 MLOps</div>
+                <div class="title-sub">Развертывание и поддержка моделей машинного обучения</div>
+                <div style="font-size: 1.2em; opacity: 0.9; margin: 30px 0;">
+                    36 академических часов • 18 практических занятий
+                </div>
+            </div>
+
+            <div class="speaker">
+                <div class="speaker-name">Нурутдинова Алсу Рафаиловна</div>
+                <div class="speaker-title">
+                    Кандидат физико-математических наук<br>
+                    Главный инженер команды кибербезопасности<br>
+                    Управление развития платформенных сервисов<br>
+                    Доцент ИТИС КФУ
+                </div>
+                <div style="margin-top: 30px; font-size: 1em;">
+                    📧 alsu124@mail.ru | 💬 t.me/+3N7q9X1YIWxkN2Iy
+                </div>
+            </div>
+        </div>
+
+        <!-- Slide 2: Problem -->
+        <div class="slide content-slide">
+            <h1>❌ Проблема: Модель в ноутбуке</h1>
+            <div class="flex-container">
+                <div class="flex-item">
+                    <h3>😅 На машине Ивана</h3>
+                    <ul>
+                        <li>✅ Код работает</li>
+                        <li>✅ ROC-AUC = 0.85</li>
+                        <li>✅ Все зависимости установлены</li>
+                        <li>✅ Данные на месте</li>
+                    </ul>
+                </div>
+                <div class="flex-item">
+                    <h3>😭 На машине Маши</h3>
+                    <ul>
+                        <li>❌ ModuleNotFoundError</li>
+                        <li>❌ FileNotFoundError</li>
+                        <li>❌ AttributeError</li>
+                        <li>❌ ROC-AUC = 0.52</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="question-box">
+                <div class="question">❓ Вопрос для группы:</div>
+                <p>Кто сталкивался с ситуацией "на моей машине работает, а у коллеги не работает"?</p>
+                <p style="font-size: 0.9em; margin-top: 10px;">(Поднимите руку)</p>
+            </div>
+        </div>
+
+        <!-- Slide 3: Code comparison -->
+        <div class="slide content-slide">
+            <h1>📊 Сравнение подходов</h1>
+
+            <h2 style="color: #f44336;">❌ Неправильно (ноутбук)</h2>
+            <div class="code-block">df = pd.read_csv("/Users/anna/data.csv")  # абсолютный путь!
+model = RandomForest(n_estimators=42)  # магическое число
+model.fit(X_train, y)
+print(f"ROC-AUC: {roc_auc_score(y_test, y_pred)}")</div>
+
+            <h2 style="color: #4caf50;">✅ Правильно (production)</h2>
+            <div class="code-block">params = load_params()  # из params.yaml
+pipe = Pipeline([
+    ("preprocess", build_preprocessor(params)),
+    ("model", build_model(params))
+])
+pipe.fit(X_train, y)
+joblib.dump(pipe, "models/model.joblib")</div>
+        </div>
+
+        <!-- Slide 4: Training/Serving Skew -->
+        <div class="slide content-slide">
+            <h1>⚠️ Training/Serving Skew</h1>
+
+            <h2>Сценарий:</h2>
+            <p>Препроцессор в ноутбуке, но его забыли на сервере</p>
+
+            <div class="box error">
+                <strong>❌ Обучение:</strong> ROC-AUC = 0.85 (нормализованные данные)<br>
+                <strong>❌ Production:</strong> ROC-AUC = 0.32 (ненормализованные данные!)
+            </div>
+
+            <h3>Почему?</h3>
+            <div class="code-block"># В ноутбуке: модель видит нормализованные данные
+X_scaled = StandardScaler().fit_transform(X_train)
+model.fit(X_scaled, y)
+
+# На сервере: забыли нормализацию!
+predictions = model.predict(X_raw)  # модель ломается!</div>
+
+            <div class="box success">
+                <strong>✅ Решение:</strong> Препроцессор + модель в одном Pipeline!
+            </div>
+        </div>
+
+        <!-- Slide 5: Data Drift -->
+        <div class="slide content-slide">
+            <h1>📈 Data Drift (история Сбербанка)</h1>
+
+            <h2>Ситуация:</h2>
+            <p>2020 год - COVID. Все тарифы изменились, новые категории появились.</p>
+
+            <div class="code-block">Месяц 1: ROC-AUC = 0.85 ✅
+Месяц 2: ROC-AUC = 0.83 ✅
+Месяц 3: ROC-AUC = 0.81 ⚠️
+Месяц 4: ROC-AUC = 0.72 ❌
+Месяц 5: ROC-AUC = 0.65 ❌❌</div>
+
+            <div class="flex-container">
+                <div class="flex-item">
+                    <h3>❌ Без мониторинга:</h3>
+                    <ul>
+                        <li>Неделю модель ломается</li>
+                        <li>Клиенты жалуются</li>
+                        <li>Компания теряет деньги</li>
+                        <li>Потом спохватываются</li>
+                    </ul>
+                </div>
+                <div class="flex-item">
+                    <h3>✅ С мониторингом:</h3>
+                    <ul>
+                        <li>Система замечает сами</li>
+                        <li>Бьёт alarm</li>
+                        <li>Команда спокойно переобучает</li>
+                        <li>Всё работает</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Slide 6: Definition MLOps -->
+        <div class="slide content-slide">
+            <h1>🎯 Что такое MLOps?</h1>
+
+            <p style="font-size: 1.3em; font-weight: bold; color: #667eea; margin: 20px 0;">
+                ML (Machine Learning) + Ops (Operations)
+            </p>
+
+            <p>Практики инженерии которые позволяют запустить ML-модель в production и оставить её там работать 24/7</p>
+
+            <div class="stats">
+                <div class="stat-box">
+                    <div class="number">🔄</div>
+                    <div class="label">Reproducibility</div>
+                </div>
+                <div class="stat-box">
+                    <div class="number">👁️</div>
+                    <div class="label">Monitoring</div>
+                </div>
+                <div class="stat-box">
+                    <div class="number">🤖</div>
+                    <div class="label">Automation</div>
+                </div>
+            </div>
+
+            <div class="question-box">
+                <div class="question">❓ Вопрос:</div>
+                <p>Кто может объяснить почему важна воспроизводимость?</p>
+            </div>
+        </div>
+
+        <!-- Slide 7: Reproducibility -->
+        <div class="slide content-slide">
+            <h1>🔄 Reproducibility (Воспроизводимость)</h1>
+
+            <p><strong>Определение:</strong> Один и тот же код + одни и те же данные = одна и та же модель (всегда)</p>
+
+            <div class="code-block">$ make train
+ROC-AUC: 0.785
+
+$ make train  (месяц спустя, на другой машине)
+ROC-AUC: 0.785  ← ОДИНАКОВО!</div>
+
+            <h3>Почему это важно?</h3>
+            <ul>
+                <li><span class="emoji">🔬</span>Можете экспериментировать (меняете параметр → запускаете снова)</li>
+                <li><span class="emoji">📈</span>Можете доказать улучшение (не плацебо)</li>
+                <li><span class="emoji">⏮️</span>Можете вернуться в прошлое (какие параметры были месяц назад?)</li>
+                <li><span class="emoji">👥</span>Другие могут повторить результат</li>
+            </ul>
+
+            <h3>Как достичь:</h3>
+            <div class="box">
+                ✅ Зафиксировать seed: <code class="highlight">random_state=42</code><br>
+                ✅ Зафиксировать версии: <code class="highlight">requirements.txt</code><br>
+                ✅ Версионировать данные: <code class="highlight">dvc add data/</code><br>
+                ✅ Хранить параметры: <code class="highlight">params.yaml</code>
+            </div>
+        </div>
+
+        <!-- Slide 8: Monitoring -->
+        <div class="slide content-slide">
+            <h1>👁️ Monitoring (Мониторинг)</h1>
+
+            <p><strong>Определение:</strong> Видеть что происходит с моделью в production (сейчас и историю)</p>
+
+            <h2>Метрики сервиса:</h2>
+            <table class="table">
+                <tr>
+                    <th>Метрика</th>
+                    <th>Норма</th>
+                    <th>Проблема</th>
+                </tr>
+                <tr>
+                    <td>RPS (запросы/сек)</td>
+                    <td>125 req/s</td>
+                    <td>0 req/s</td>
+                </tr>
+                <tr>
+                    <td>Latency (p95)</td>
+                    <td>42 ms</td>
+                    <td>5000 ms</td>
+                </tr>
+                <tr>
+                    <td>Error Rate</td>
+                    <td>0.02%</td>
+                    <td>50%</td>
+                </tr>
+            </table>
+
+            <h2>Метрики модели:</h2>
+            <ul>
+                <li><span class="emoji">📊</span><strong>ROC-AUC:</strong> была 0.85, стала 0.72 → ALARM!</li>
+                <li><span class="emoji">🌊</span><strong>Data Drift:</strong> данные изменились? (новые категории?)</li>
+                <li><span class="emoji">📉</span><strong>Model Drift:</strong> модель становится хуже?</li>
+            </ul>
+        </div>
+
+        <!-- Slide 9: Automation -->
+        <div class="slide content-slide">
+            <h1>🤖 Automation (Автоматизация)</h1>
+
+            <h2>Вручную (в 2000-х):</h2>
+            <div class="box error">
+                1. Получить письмо "переобучить модель"<br>
+                2. Скачать новые данные<br>
+                3. Запустить обучение<br>
+                4. Проверить качество<br>
+                5. Коммитить в git<br>
+                6. Собрать Docker<br>
+                7. Развернуть<br>
+                8. Проверить<br>
+                ⏱️ Время: 2 часа | ⚠️ Риск ошибок: ВЫСОКИЙ
+            </div>
+
+            <h2>Автоматически (сейчас):</h2>
+            <div class="box success">
+                1. Система видит что ROC-AUC упал<br>
+                2. Система сама переобучает<br>
+                3. Если выросло → ставит в production<br>
+                4. Если нет → откатывает обратно<br>
+                ⏱️ Время: 5 минут | ✅ Риск ошибок: МИНИМАЛЬНЫЙ
+            </div>
+        </div>
+
+        <!-- Slide 10: DS vs MLEng -->
+        <div class="slide content-slide">
+            <h1>🧪 Data Science vs ML Engineering</h1>
+
+            <table class="table" style="font-size: 0.9em;">
+                <tr>
+                    <th>Аспект</th>
+                    <th>Data Scientist</th>
+                    <th>ML Engineer</th>
+                </tr>
+                <tr>
+                    <td>IDE</td>
+                    <td>Jupyter</td>
+                    <td>VS Code</td>
+                </tr>
+                <tr>
+                    <td>Цель</td>
+                    <td>Найти решение</td>
+                    <td>Развернуть в production</td>
+                </tr>
+                <tr>
+                    <td>Параметры</td>
+                    <td>В коде</td>
+                    <td>В params.yaml</td>
+                </tr>
+                <tr>
+                    <td>Тесты</td>
+                    <td>Ручные</td>
+                    <td>Автоматические</td>
+                </tr>
+                <tr>
+                    <td>Развёртывание</td>
+                    <td>Ручное</td>
+                    <td>Автоматическое</td>
+                </tr>
+                <tr>
+                    <td>Знает ли он что в production?</td>
+                    <td>Нет</td>
+                    <td>Да</td>
+                </tr>
+            </table>
+
+            <div class="question-box">
+                <div class="question">❓ Вопрос:</div>
+                <p>Кто из вас хочет стать ML Engineer'ом? (поднять руки)</p>
+                <p style="font-size: 0.9em; margin-top: 10px;">Интересный факт: ML Engineer'ы получают больше 💰</p>
+            </div>
+        </div>
+
+        <!-- Slide 11: Tools Stack -->
+        <div class="slide content-slide">
+            <h1>🛠️ Стек инструментов</h1>
+
+            <div class="flex-container" style="font-size: 0.95em;">
+                <div class="flex-item">
+                    <h3>🟦 Уровень 1: Базовые</h3>
+                    <ul style="margin-left: 15px;">
+                        <li>Python 3.11</li>
+                        <li>Git</li>
+                        <li>DVC</li>
+                        <li>make</li>
+                    </ul>
+                </div>
+                <div class="flex-item">
+                    <h3>🟩 Уровень 2: Разработка</h3>
+                    <ul style="margin-left: 15px;">
+                        <li>pytest</li>
+                        <li>ruff</li>
+                        <li>pre-commit</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="flex-container" style="font-size: 0.95em;">
+                <div class="flex-item">
+                    <h3>🟨 Уровень 3: ML</h3>
+                    <ul style="margin-left: 15px;">
+                        <li>scikit-learn</li>
+                        <li>MLflow</li>
+                    </ul>
+                </div>
+                <div class="flex-item">
+                    <h3>🟪 Уровень 4: Production</h3>
+                    <ul style="margin-left: 15px;">
+                        <li>FastAPI</li>
+                        <li>Docker</li>
+                        <li>GitHub Actions</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="flex-container" style="font-size: 0.95em;">
+                <div class="flex-item">
+                    <h3>🟧 Уровень 5: Мониторинг</h3>
+                    <ul style="margin-left: 15px;">
+                        <li>Prometheus</li>
+                        <li>Grafana</li>
+                        <li>Evidently</li>
+                        <li>Prefect</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="box success">
+                ✅ Всё это <strong>open-source</strong> и работает <strong>локально</strong>!<br>
+                ✅ Не нужны облачные сервисы, не нужны платные подписки
+            </div>
+        </div>
+
+        <!-- Slide 12: Course Structure -->
+        <div class="slide content-slide">
+            <h1>📋 Структура курса: 4 блока</h1>
+
+            <div class="timeline">
+                <div class="timeline-item">
+                    <div class="timeline-dot">1</div>
+                    <div class="timeline-label">Фундамент<br>(1-5)</div>
+                </div>
+                <div class="timeline-item">
+                    <div class="timeline-dot">2</div>
+                    <div class="timeline-label">Качество<br>(6-9)</div>
+                </div>
+                <div class="timeline-item">
+                    <div class="timeline-dot">3</div>
+                    <div class="timeline-label">Production<br>(10-13)</div>
+                </div>
+                <div class="timeline-item">
+                    <div class="timeline-dot">4</div>
+                    <div class="timeline-label">Эксплуатация<br>(14-17)</div>
+                </div>
+            </div>
+
+            <h2 style="margin-top: 40px;">Блок 1: Фундамент (недели 1-5)</h2>
+            <ul>
+                <li>✅ Структура проекта (src/, data/, models/)</li>
+                <li>✅ Параметризация (params.yaml)</li>
+                <li>✅ Git workflow (ветки, PR)</li>
+                <li>✅ Версионирование данных (DVC)</li>
+                <li>✅ Пайплайны (dvc.yaml)</li>
+            </ul>
+        </div>
+
+        <!-- Slide 13: Block 1 Result -->
+        <div class="slide content-slide">
+            <h1>✅ Блок 1 — На выходе</h1>
+
+            <div class="box success">
+                <strong>Проверка воспроизводимости:</strong><br>
+                <code class="highlight">make train</code> (день 1: ROC-AUC = 0.785)<br>
+                <code class="highlight">make train</code> (день 2: ROC-AUC = 0.785) ← ОДИНАКОВО!
+            </div>
+
+            <h2>Результат блока 1:</h2>
+            <ul>
+                <li>✅ Пайплайн воспроизводится одной командой</li>
+                <li>✅ Все параметры в config файле</li>
+                <li>✅ Данные под DVC</li>
+                <li>✅ Коллега может git clone + dvc pull + make train</li>
+            </ul>
+
+            <h2>Блок 2: Качество (недели 6-9)</h2>
+            <ul>
+                <li>✅ Тесты (pytest)</li>
+                <li>✅ Отслеживание экспериментов (MLflow)</li>
+                <li>✅ Проверка качества кода (ruff)</li>
+                <li>✅ CI/CD (GitHub Actions)</li>
+            </ul>
+        </div>
+
+        <!-- Slide 14: Blocks 3 & 4 -->
+        <div class="slide content-slide">
+            <h1>🚀 Блоки 3 & 4</h1>
+
+            <h2>Блок 3: Production (недели 10-13)</h2>
+            <ul>
+                <li>✅ REST API (FastAPI: /predict endpoint)</li>
+                <li>✅ Контейнеризация (Docker образ)</li>
+                <li>✅ Локальный стенд (docker-compose)</li>
+                <li>✅ CD (автопубликация образа)</li>
+            </ul>
+
+            <div class="code-block">$ docker compose up
+$ curl http://localhost:8000/predict -d '{"tenure": 24}'
+{"prediction": 0.23, "confidence": 0.87}</div>
+
+            <h2>Блок 4: Эксплуатация (недели 14-17)</h2>
+            <ul>
+                <li>✅ Мониторинг (Prometheus + Grafana дашборд)</li>
+                <li>✅ Дрейф (Evidently: data drift, model drift)</li>
+                <li>✅ Автопереобучение (Prefect scheduler)</li>
+                <li>✅ Готов к production 24/7</li>
+            </ul>
+        </div>
+
+        <!-- Slide 15: Real Example -->
+        <div class="slide content-slide">
+            <h1>💼 Реальный пример: Яндекс</h1>
+
+            <h2>Проблема:</h2>
+            <p>Data Scientist Петр обучил модель. На его машине работает идеально. На production - не работает.</p>
+
+            <h2>Почему?</h2>
+            <div class="code-block">❌ train, test = train_test_split(X, y, test_size=0.2)
+# каждый раз РАЗНЫЕ строки в тесте!</div>
+
+            <div class="code-block">✅ train, test = train_test_split(
+    X, y, test_size=0.2,
+    random_state=params["seed"]  ← зафиксировали!
+)</div>
+
+            <div class="box">
+                <strong>С MLOps:</strong> Проблема не возникла бы вообще, потому что random_state везде зафиксирован.
+            </div>
+
+            <div class="question-box">
+                <div class="question">❓ Вопрос:</div>
+                <p>Где ещё могут быть незафиксированные random seeds?</p>
+            </div>
+        </div>
+
+        <!-- Slide 16: Parameters Example -->
+        <div class="slide content-slide">
+            <h1>🔧 Пример: Магические числа</h1>
+
+            <h2>История стартапа:</h2>
+            <p>Нужно поменять threshold с 0.5 на 0.6</p>
+
+            <h2>Без MLOps (2 часа поиска):</h2>
+            <div class="code-block">❌ if predictions > 0.5:  # где это? в коде?
+❌ THRESHOLD = 0.5  # может быть в constants?
+❌ docker run ... -e THRESHOLD=0.5  # может в env?
+# БЕДА: threshold в трёх местах, в одном забыли менять!</div>
+
+            <h2>С MLOps (10 секунд):</h2>
+            <div class="code-block">✅ params.yaml:
+  evaluate:
+    threshold: 0.5  ← один файл!
+
+# меняешь → всё работает</div>
+
+            <div class="box success">
+                ✅ Вывод: все параметры в одном месте = простота и надежность
+            </div>
+        </div>
+
+        <!-- Slide 17: First Steps -->
+        <div class="slide content-slide">
+            <h1>🎬 Первые шаги (что делать сегодня)</h1>
+
+            <h2>1️⃣ Присоединиться к группе:</h2>
+            <div class="code-block">https://t.me/+3N7q9X1YIWxkN2Iy</div>
+
+            <h2>2️⃣ Установить окружение:</h2>
+            <div class="code-block">python3 -m venv .venv
+source .venv/bin/activate
+make install
+make check  # должно быть: environment: OK ✅</div>
+
+            <h2>3️⃣ Прочитать:</h2>
+            <ul>
+                <li>START_HERE.md</li>
+                <li>docs/student-guide.md</li>
+                <li>docs/quick-start.md</li>
+            </ul>
+
+            <div class="box">
+                <strong>📦 Репозиторий проекта:</strong><br>
+                🔗 <a href="https://github.com/username/mlops-template" target="_blank" style="color: #667eea; text-decoration: underline;">github.com/username/mlops-template</a>
+            </div>
+
+            <div class="box">
+                <strong>Контакты преподавателя:</strong><br>
+                📧 Email: alsu124@mail.ru<br>
+                💬 Telegram: https://t.me/+3N7q9X1YIWxkN2Iy
+            </div>
+        </div>
+
+        <!-- Slide 18: Summary -->
+        <div class="slide content-slide">
+            <h1>🎯 Главное сообщение</h1>
+
+            <p style="font-size: 1.2em; margin: 20px 0;">На этом курсе вы станете <strong>ML Engineer'ом</strong>, который может:</p>
+
+            <ul style="font-size: 1.1em;">
+                <li>✅ Написать код который работает везде</li>
+                <li>✅ Параметризировать свой код</li>
+                <li>✅ Версионировать данные</li>
+                <li>✅ Тестировать свой код</li>
+                <li>✅ Запустить модель как REST API</li>
+                <li>✅ Развернуть в Docker</li>
+                <li>✅ Видеть что происходит 24/7</li>
+                <li>✅ Переобучить автоматически</li>
+            </ul>
+
+            <div class="question-box" style="margin-top: 30px;">
+                <div class="question">❓ Вопросы?</div>
+                <p>Задавайте! Никаких глупых вопросов не бывает.</p>
+            </div>
+        </div>
+
+        <!-- Slide 19: Thank You -->
+        <div class="slide title-slide">
+            <div style="flex: 1; display: flex; flex-direction: column; justify-content: center; text-align: center;">
+                <div class="title-main">🚀 Вперёд в production!</div>
+                <div class="title-sub" style="font-size: 1.4em;">Спасибо за внимание</div>
+                <div style="margin-top: 40px; font-size: 1.2em;">
+                    📦 Репо: <a href="https://github.com/username/mlops-template" target="_blank" style="color: #fff; text-decoration: underline;">github.com/username/mlops-template</a><br>
+                    <br>
+                    📧 alsu124@mail.ru<br>
+                    💬 https://t.me/+3N7q9X1YIWxkN2Iy<br>
+                    <br>
+                    На следующем занятии:<br>
+                    Клонируем template и делаем первую лабораторную!
+                </div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <button id="prevBtn" onclick="changeSlide(-1)">← Назад</button>
+            <span class="slide-counter">
+                <span id="currentSlide">1</span> / <span id="totalSlides">19</span>
+            </span>
+            <button id="nextBtn" onclick="changeSlide(1)">Далее →</button>
+        </div>
+    </div>
+
+    <script>
+        let currentSlide = 1;
+        const totalSlides = document.querySelectorAll('.slide').length;
+        document.getElementById('totalSlides').textContent = totalSlides;
+
+        function showSlide(n) {
+            const slides = document.querySelectorAll('.slide');
+
+            if (n > totalSlides) currentSlide = totalSlides;
+            if (n < 1) currentSlide = 1;
+
+            slides.forEach(slide => slide.classList.remove('active'));
+            slides[currentSlide - 1].classList.add('active');
+
+            document.getElementById('currentSlide').textContent = currentSlide;
+            document.getElementById('prevBtn').disabled = currentSlide === 1;
+            document.getElementById('nextBtn').disabled = currentSlide === totalSlides;
+        }
+
+        function changeSlide(n) {
+            currentSlide += n;
+            showSlide(currentSlide);
+        }
+
+        // Keyboard navigation
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowLeft') changeSlide(-1);
+            if (e.key === 'ArrowRight') changeSlide(1);
+        });
+
+        // Initialize
+        showSlide(currentSlide);
+    </script>
+</body>
+</html>
