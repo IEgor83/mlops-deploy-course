@@ -1,7 +1,5 @@
 """Построение препроцессора признаков.
 
-TODO (занятие 1): собрать здесь ColumnTransformer.
-
 Требования:
   * числовые признаки: заполнение пропусков + масштабирование;
   * категориальные: заполнение пропусков + OneHotEncoder;
@@ -15,14 +13,21 @@ from __future__ import annotations
 
 from typing import Any
 
+from sklearn.compose import ColumnTransformer
+from sklearn.impute import SimpleImputer
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
-def build_preprocessor(params: dict[str, Any]):
-    """Собирает ColumnTransformer для разных типов признаков."""
-    from sklearn.compose import ColumnTransformer
-    from sklearn.impute import SimpleImputer
-    from sklearn.pipeline import Pipeline
-    from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
+def build_preprocessor(params: dict[str, Any]) -> ColumnTransformer:
+    """Собирает ColumnTransformer для разных типов признаков.
+
+    | Тип признаков | Обработка |
+    |---|---|
+    | numeric | SimpleImputer(strategy="median") -> StandardScaler() |
+    | categorical | SimpleImputer(strategy="most_frequent") -> OneHotEncoder(handle_unknown="ignore") |
+    | binary | "passthrough" |
+    """
     f = params["features"]
 
     # Для числовых: заполнение пропусков медианой + масштабирование

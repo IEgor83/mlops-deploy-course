@@ -1,9 +1,6 @@
 """Стадия train.
 
-TODO (занятие 1): перенести сюда логику из notebooks/baseline_notebook.py,
-исправив всё, что вы в ней нашли.
-
-Обязательно:
+Требования:
   * никаких абсолютных путей — только src.config.resolve();
   * никаких магических чисел — только params.yaml;
   * зафиксированный seed;
@@ -14,27 +11,59 @@ TODO (занятие 1): перенести сюда логику из notebooks
 """
 from __future__ import annotations
 
-from src.config import load_params
+import json
+from pathlib import Path
+
+import joblib
+import pandas as pd
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import f1_score, precision_recall_curve, roc_auc_score
+from sklearn.pipeline import Pipeline
+from sklearn.ensemble import GradientBoostingClassifier
+
+from src.config import TARGET, feature_columns, load_params, resolve
+from src.features import build_preprocessor
 from src.logging_setup import setup_logging
 
 log = setup_logging()
 
 
+def build_model(params: dict) -> object:
+    """Возвращает модель по значению params["train"]["model"].
+
+    Поддерживаемые модели:
+      * logreg — LogisticRegression
+      * random_forest — RandomForestClassifier
+      * gradient_boosting — GradientBoostingClassifier
+    """
+    model_name = params["train"]["model"]
+    seed = params["seed"]
+
+    if model_name == "logreg":
+        return LogisticRegression(
+            max_iter=1000,
+            random_state=seed,
+        )
+    elif model_name == "random_forest":
+        return RandomForestClassifier(
+            n_estimators=100,
+            max_depth=10,
+            random_state=seed,
+            n_jobs=-1,
+        )
+    elif model_name == "gradient_boosting":
+        return GradientBoostingClassifier(
+            n_estimators=100,
+            max_depth=5,
+            random_state=seed,
+        )
+    else:
+        raise ValueError(f"Неизвестная модель: {model_name}")
+
+
 def main() -> None:
     params = load_params()
-
-    # Импорты
-    import json
-    from pathlib import Path
-    import pandas as pd
-    import joblib
-    from sklearn.pipeline import Pipeline
-    from sklearn.ensemble import RandomForestClassifier
-    from sklearn.metrics import roc_auc_score, f1_score
-    from sklearn.metrics import precision_recall_curve, auc
-
-    from src.config import resolve, feature_columns, TARGET
-    from src.features import build_preprocessor
 
     # 1. Загружаем данные
     log.info("Загружаю данные...")
@@ -58,12 +87,7 @@ def main() -> None:
     log.info("Построение Pipeline...")
     pipe = Pipeline([
         ("preprocess", build_preprocessor(params)),
-        ("model", RandomForestClassifier(
-            n_estimators=100,
-            max_depth=10,
-            random_state=params["seed"],
-            n_jobs=-1,
-        )),
+        ("model", build_model(params)),
     ])
 
     # 4. Обучаем
@@ -80,7 +104,7 @@ def main() -> None:
 
     # Считаем PR-AUC
     precision, recall, _ = precision_recall_curve(y_val, y_pred_proba)
-    pr_auc = auc(recall, precision)
+    pr_auc = float((recall * precision).sum() / len(recall))
 
     log.info(f"✅ ROC-AUC: {roc_auc:.4f}")
     log.info(f"✅ PR-AUC:  {pr_auc:.4f}")
