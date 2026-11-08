@@ -8,9 +8,16 @@ __pycache__/
 .coverage
 htmlcov/
 
-# Данные и модели — в DVC, не в Git
-/data/
-/models/
+# Данные и модели — в DVC, не в Git.
+# Игнорируем содержимое, но НЕ указатели DVC: .dvc-файлы обязаны ехать
+# в Git, иначе `dvc add` падает с "bad DVC file name ... is git-ignored".
+/data/**
+!/data/**/
+!/data/**/*.dvc
+!/data/README.md
+/models/**
+!/models/**/
+!/models/**/*.dvc
 
 # Метрики и отчёты — маленькие, их держим в Git:
 # так работают `dvc metrics diff` и сравнение между коммитами

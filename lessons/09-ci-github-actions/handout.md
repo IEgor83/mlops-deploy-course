@@ -181,6 +181,57 @@ Settings → Branches → Edit rule для `main`:
 Реализовывать это сейчас не нужно (ваш MinIO живёт на localhost
 и раннеру недоступен), но понимать механику — обязательно: вопрос будет на зачёте.
 
+## Шаг 8. Метрики прямо в Pull Request
+
+Сейчас, чтобы узнать метрики после изменения, нужно открыть вкладку
+Actions, найти прогон, скачать артефакт и распаковать. Ревьюер этого
+не сделает. Значит, решение о мерже принимается вслепую.
+
+Пусть CI сам пишет метрики комментарием в PR.
+
+Добавьте в job `pipeline`, после шага воспроизведения:
+
+```yaml
+      - name: Опубликовать метрики в PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const m = JSON.parse(fs.readFileSync('reports/eval_metrics.json')).metrics;
+            const body = [
+              '## Метрики этого PR',
+              '',
+              '| Метрика | Значение |',
+              '|---|---|',
+              `| ROC-AUC | ${m.roc_auc.toFixed(4)} |`,
+              `| PR-AUC | ${m.pr_auc.toFixed(4)} |`,
+              `| F1 | ${m.f1.toFixed(4)} |`,
+            ].join('\n');
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body,
+            });
+```
+
+Понадобится разрешение на запись в PR:
+
+```yaml
+permissions:
+  contents: read
+  pull-requests: write
+```
+
+**Что здесь важно понять.** Это не украшение. Ревьюер видит цифры,
+не покидая страницу PR, и может спросить «почему ROC-AUC просел
+на 0.02» — до мержа, а не через месяц.
+
+**Если успели раньше:** добавьте сравнение с метриками из `main`,
+чтобы в комментарии была дельта, а не абсолютное значение.
+Абсолютное число мало о чём говорит, изменение — говорит обо всём.
+
 ## Что сдать
 
 - [ ] `.github/workflows/ci.yml` с двумя job
@@ -188,6 +239,8 @@ Settings → Branches → Edit rule для `main`:
 - [ ] Показано, что CI краснеет при завышенном `min_roc_auc`
 - [ ] Защита `main` с обязательными проверками включена
 - [ ] Бейдж в README
+- [ ] CI публикует метрики комментарием в PR
+- [ ] Показан PR с таким комментарием
 
 ## Домашнее задание (1,5–2 ч)
 

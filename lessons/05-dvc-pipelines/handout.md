@@ -107,6 +107,16 @@ dvc repro
 **`cache: false` у метрик** означает, что маленькие JSON-файлы едут прямо
 в Git. Так `dvc metrics diff` умеет сравнивать метрики между коммитами.
 
+Модель теперь тоже выход стадии, поэтому `.dvc`-файл из занятия 4 надо убрать —
+иначе DVC откажется работать: один и тот же путь описан в двух местах.
+
+```bash
+dvc remove models/model.joblib.dvc
+```
+
+Если пропустить, `dvc repro` скажет:
+`output 'models/model.joblib' is specified in: train, models/model.joblib.dvc`
+
 ## Шаг 3. Запуск и наблюдение
 
 ```bash
@@ -151,6 +161,13 @@ dvc push
 `dvc.lock` **обязательно** коммитится: без него на другой машине DVC
 не поймёт, какому состоянию соответствуют данные в хранилище.
 
+Заодно вы только что бесплатно получили привязку метрики к версии данных,
+про которую шла речь на занятии 4. В одном коммите лежат `dvc.lock`
+с хешами данных и `reports/train_metrics.json` с метриками. По любому
+коммиту теперь восстанавливается полный ответ: вот метрика, вот код,
+вот конкретные байты данных, на которых она получена. Руками ничего
+переписывать не нужно.
+
 ## Шаг 5. Сравнение метрик
 
 Это то, ради чего метрики держатся в Git:
@@ -166,9 +183,15 @@ dvc metrics diff HEAD~1
 в `reports/roc.json`:
 
 ```python
+from sklearn.metrics import roc_curve   # к остальным импортам evaluate.py
+
+# y_test и proba — те же переменные, по которым вы считаете метрики
 fpr, tpr, _ = roc_curve(y_test, proba)
-step = max(1, len(fpr) // 200)
-json.dump([{"fpr": float(a), "tpr": float(b)} for a, b in zip(fpr[::step], tpr[::step])], f)
+step = max(1, len(fpr) // 200)          # 200 точек хватает для графика
+points = [{"fpr": float(a), "tpr": float(b)} for a, b in zip(fpr[::step], tpr[::step])]
+
+with open(resolve("reports/roc.json"), "w", encoding="utf-8") as f:
+    json.dump(points, f, indent=2)
 ```
 
 и опишите в стадии `evaluate`:
@@ -201,6 +224,59 @@ cat reports/eval_metrics.json
 Метрики должны совпасть с вашими до третьего знака. Если совпали — у вас
 воспроизводимый пайплайн. Это половина курса.
 
+## Шаг 7. Стадия валидации данных
+
+Ваш пайплайн сейчас обучит модель на чём угодно. Придёт выгрузка,
+где половина `monthly_charges` — нули, и `dvc repro` спокойно отработает.
+Поставим заслон между подготовкой и обучением.
+
+Создайте `src/data/validate.py`. Скрипт читает `data/processed/train.csv`
+и **завершается кодом 1**, если нарушено хоть одно правило:
+
+```python
+CHECKS = {
+    "строк не меньше минимума":    lambda df, p: len(df) >= p["min_rows"],
+    "доля пропусков в норме":      lambda df, p: df.isna().mean().max() <= p["max_missing_share"],
+    "доля оттока осмысленна":      lambda df, p: p["target_rate"][0] < df[TARGET].mean() < p["target_rate"][1],
+    "нет дублей по клиенту":       lambda df, p: not df["customer_id"].duplicated().any(),
+    "стаж в допустимом диапазоне": lambda df, p: df["tenure_months"].between(0, 200).all(),
+}
+```
+
+Пороги — в `params.yaml`, не в коде:
+
+```yaml
+validate:
+  min_rows: 5000
+  max_missing_share: 0.05
+  target_rate: [0.05, 0.60]
+```
+
+Скрипт печатает результат каждой проверки и пишет `reports/validation.json`
+с перечнем пройденного и упавшего.
+
+Вставьте стадию в `dvc.yaml` **между** prepare и train:
+
+```yaml
+  validate:
+    cmd: python -m src.data.validate
+    deps:
+      - src/data/validate.py
+      - data/processed/train.csv
+    params:
+      - validate
+    metrics:
+      - reports/validation.json:
+          cache: false
+```
+
+И допишите `reports/validation.json` в зависимости стадии `train` —
+тогда обучение не запустится, пока валидация не прошла.
+
+Проверьте, что заслон работает: временно поставьте `min_rows: 999999`,
+запустите `dvc repro` и убедитесь, что пайплайн остановился на validate
+и до обучения не дошёл.
+
 ## Что сдать
 
 - [ ] `dvc.yaml` с четырьмя стадиями и корректными `deps`
@@ -209,6 +285,8 @@ cat reports/eval_metrics.json
 - [ ] `dvc.lock` закоммичен
 - [ ] `dvc metrics diff HEAD~1` показывает изменение
 - [ ] Пайплайн воспроизводится на чистом клоне
+- [ ] Стадия `validate` в пайплайне, обучение зависит от её результата
+- [ ] Показано, что при нарушении порога `dvc repro` останавливается до обучения
 
 ## Домашнее задание (1,5–2 ч)
 

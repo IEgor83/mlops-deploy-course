@@ -726,9 +726,6 @@ Prefect: последний run был 3 часа назад, успешен
 2. docs/quick-start.md — шпаргалка
 3. docs/theory/01-what-is-mlops.md — конспект теории
 
-**Смотрите:**
-- reference-project/ — полный рабочий пример
-
 **Если что-то не ясно:**
 - Telegram: https://t.me/+3N7q9X1YIWxkN2Iy
 - Email: alsu124@mail.ru
