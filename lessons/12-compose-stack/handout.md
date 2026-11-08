@@ -104,7 +104,7 @@ volumes:
 
 ```yaml
   minio:
-    image: minio/minio:latest
+    image: cgr.dev/chainguard/minio:latest  # minio/minio ушёл с Docker Hub и quay.io (см. занятие 4)
     command: server /data --console-address ":9001"
     ports:
       - "9000:9000"
@@ -216,6 +216,68 @@ down:            ## Погасить стенд
 | `docker compose down` | останавливает и удаляет контейнеры, **тома остаются** |
 | `docker compose down -v` | то же плюс удаляет тома — данные MLflow и MinIO пропадут |
 
+## Шаг 8. Стенд, который не падает от одного контейнера
+
+### Лимиты ресурсов
+
+Сейчас любой сервис стенда может съесть всю память машины.
+На занятии 14 вы будете гонять нагрузку — и узнаете об этом
+в самый неподходящий момент.
+
+```yaml
+  api:
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+        reservations:
+          memory: 256M
+```
+
+Проставьте лимиты всем сервисам. Постгресу и MinIO хватит по 256 МБ,
+Grafana — 256 МБ, Prometheus — 512 МБ.
+
+Проверьте, что лимит работает:
+
+```bash
+docker stats --no-stream
+```
+
+В колонке `MEM USAGE / LIMIT` должно стоять ваше значение, а не вся
+память хоста.
+
+**Зачем это на учебном стенде.** Затем же, зачем в проде: контейнер
+без лимита при утечке памяти убивает не себя, а соседей — и вы получаете
+каскадный отказ вместо одного упавшего сервиса.
+
+### Стенд должен подниматься на чистой машине
+
+Сейчас после `docker compose up` нужно руками зайти в MinIO и создать
+бакет. Это не воспроизводимо.
+
+Добавьте сервис-инициализатор:
+
+```yaml
+  minio-init:
+    image: bitnamilegacy/minio-client:latest  # minio/mc ушёл с Docker Hub, у Chainguard mc закрыт логином
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 minioadmin minioadmin &&
+      mc mb --ignore-existing local/mlflow &&
+      echo 'бакет готов'
+      "
+```
+
+Он отработает один раз и завершится — это нормально, `docker compose ps`
+покажет его как `exited (0)`.
+
+Проверка: `docker compose down -v && docker compose up -d`, и стенд
+поднимается полностью без единого ручного действия.
+
 ## Что сдать
 
 - [ ] `docker/docker-compose.yml` с четырьмя сервисами
@@ -224,11 +286,15 @@ down:            ## Погасить стенд
 - [ ] Сервисы обращаются друг к другу по именам, не по localhost
 - [ ] Сервис грузит модель из Registry: `model_version` начинается с `registry:`
 - [ ] `make up` / `make down` работают
+- [ ] Лимиты ресурсов у всех сервисов, подтверждены `docker stats`
+- [ ] После `down -v && up -d` стенд поднимается без ручных действий
 
 ## Домашнее задание (1,5–2 ч)
 
 1. Добавьте сервис-инициализатор, который сам создаёт бакет `mlflow`
-   в MinIO при старте стенда (образ `minio/mc`, команда `mc mb`).
+   в MinIO при старте стенда (образ `bitnamilegacy/minio-client`, команда
+   `mc mb` — у Chainguard свой `mc`-образ закрыт логином, а у Bitnami он
+   тянется анонимно).
    Стенд должен подниматься на чистой машине без ручных действий.
 2. Вынесите пароли из compose-файла в `.env` (файл в `.gitignore`),
    положите рядом `.env.example`. Проверьте, что стенд поднимается.

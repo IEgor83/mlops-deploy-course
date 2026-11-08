@@ -1,117 +1,214 @@
-# Настройка окружения
+# 💻 Установка окружения Python
 
-Пройдите этот документ **до первого занятия**. На паре времени на установку не будет.
+Это руководство для студентов курса по MLOps. Выбери свою операционную систему.
 
-## Что должно быть установлено
+---
 
-| Инструмент | Версия | Проверка |
-|---|---|---|
-| Python | 3.11+ | `python --version` |
-| Git | 2.30+ | `git --version` |
-| Docker Desktop / Docker Engine | 24+ | `docker run hello-world` |
-| Аккаунт GitHub | — | вход выполнен |
-| Редактор | VS Code (рекомендуется) | расширения Python, Docker |
+## 🍎 macOS
 
-Docker понадобится с занятия 11, но поставьте заранее: именно он ломается чаще всего.
-
-## Установка по платформам
-
-### Windows
-
-Питон — **только** с python.org (не из Microsoft Store: он ломает пути к venv).
-При установке отметьте «Add python.exe to PATH».
-
-```powershell
-winget install --id Git.Git -e
-winget install --id Docker.DockerDesktop -e
-```
-
-Docker Desktop требует включённого WSL 2. Если `docker run hello-world` падает —
-включите виртуализацию в BIOS и выполните `wsl --install` от администратора.
-
-Все команды курса выполняйте в **PowerShell**, а не в cmd.
-
-### macOS
+### Проверь что у тебя установлен Python 3.11+
 
 ```bash
-brew install python@3.11 git
-brew install --cask docker   # затем запустите Docker.app один раз вручную
+python3 --version
 ```
 
-### Linux (Ubuntu/Debian)
+Должно вывести `Python 3.11.0` или выше.
 
+Если нет - установи через Homebrew:
 ```bash
-sudo apt update
-sudo apt install -y python3.11 python3.11-venv git make
-curl -fsSL https://get.docker.com | sudo sh
-sudo usermod -aG docker $USER   # перелогиньтесь после этого
+brew install python@3.11
 ```
 
-## Проверка окружения
-
-Клонируйте учебный репозиторий и запустите скелет:
+### Создай виртуальное окружение
 
 ```bash
-git clone <ссылка-на-репозиторий-курса>
-cd MLOPS/template
+# Перейди в папку проекта
+cd ~/Desktop/mlops-homework
+
+# Создай venv
+python3 -m venv .venv
+
+# Активируй
+source .venv/bin/activate
+
+# Установи зависимости
+pip install -r requirements.txt
+```
+
+Когда виртуальное окружение активно, слева в терминале должно появиться `(.venv)`.
+
+---
+
+## 🐧 Linux (Ubuntu/Debian)
+
+### Установи Python 3.11+
+
+```bash
+sudo apt-get update
+sudo apt-get install python3.11 python3.11-venv python3-pip
+```
+
+### Создай виртуальное окружение
+
+```bash
+cd ~/Desktop/mlops-homework
+python3.11 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+### Для других дистрибутивов
+
+**Fedora/RHEL:**
+```bash
+sudo dnf install python3.11 python3.11-venv
+python3.11 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+**Arch:**
+```bash
+sudo pacman -S python python-virtualenv
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+---
+
+## 🪟 Windows
+
+### Установи Python 3.11+
+
+1. Скачай с https://www.python.org/downloads/ версию 3.11 или выше
+2. При установке **обязательно** отметь галочку "Add Python to PATH"
+3. Нажми "Install Now"
+
+### Создай виртуальное окружение
+
+Открой PowerShell или Command Prompt:
+
+```bash
+# Перейди в папку проекта
+cd C:\Users\ВашИмя\Desktop\mlops-homework
+
+# Создай venv
+python -m venv .venv
+
+# Активируй (PowerShell)
+.venv\Scripts\Activate.ps1
+
+# Или активируй (Command Prompt)
+.venv\Scripts\activate.bat
+
+# Установи зависимости
+pip install -r requirements.txt
+```
+
+**Если не работает Activate.ps1:**
+```bash
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+```
+
+Потом попробуй снова активировать.
+
+---
+
+## ✅ Проверка установки
+
+После активации вenv должно работать:
+
+```bash
+python --version    # Python 3.11+
+pip --version       # pip 23.0+
+which python        # Должно быть в .venv
+```
+
+Проверь что видишь путь с `.venv`:
+```
+/Users/admin/Desktop/mlops-homework/.venv/bin/python
+```
+
+Или на Windows:
+```
+C:\Users\ВашИмя\Desktop\mlops-homework\.venv\Scripts\python.exe
+```
+
+---
+
+## 📦 Установка зависимостей
+
+Когда venv активировано:
+
+```bash
+pip install -r requirements.txt
+```
+
+Основные пакеты:
+- `pandas` — работа с данными
+- `scikit-learn` — машинное обучение
+- `dvc` — версионирование данных
+- `pytest` — тестирование
+- `pre-commit` — проверки перед коммитом
+
+---
+
+## 🔄 Каждый раз когда открываешь терминал
+
+Нужно активировать виртуальное окружение:
+
+**macOS / Linux:**
+```bash
+source .venv/bin/activate
+```
+
+**Windows (PowerShell):**
+```bash
+.venv\Scripts\Activate.ps1
+```
+
+**Windows (Command Prompt):**
+```bash
+.venv\Scripts\activate.bat
+```
+
+Когда активировано, слева в терминале должно быть `(.venv)`.
+
+---
+
+## 🆘 Проблемы
+
+### "python: command not found"
+
+**Решение:**
+- На macOS/Linux используй `python3` вместо `python`
+- На Windows используй `python` (если установлен через python.org)
+
+### "venv: command not found"
+
+**Решение:**
+```bash
+# macOS / Linux
+python3 -m venv .venv
+
+# Windows
 python -m venv .venv
 ```
 
-Активация виртуального окружения:
+### "pip install" падает с ошибкой
 
+**Решение:**
 ```bash
-source .venv/bin/activate        # macOS / Linux
-.venv\Scripts\Activate.ps1       # Windows PowerShell
+# Обнови pip
+pip install --upgrade pip
+
+# Потом пробуй снова
+pip install -r requirements.txt
 ```
 
-Дальше:
+---
 
-```bash
-pip install -r requirements.txt -r requirements-dev.txt
-python -m src.smoke_check
-```
+## 🎯 Готово!
 
-Скрипт должен напечатать `environment: OK` и версии ключевых библиотек.
-Если что-то падает — принесите **текст ошибки целиком** на первое занятие.
-
-## Настройка Git
-
-```bash
-git config --global user.name "Фамилия Имя"
-git config --global user.email "ваш@email"
-git config --global init.defaultBranch main
-git config --global core.autocrlf input    # Windows: true
-```
-
-Последняя строка важна: без неё Windows подставит CRLF, и скрипты внутри
-Docker-образа не запустятся с ошибкой `bad interpreter`.
-
-### Доступ к GitHub по SSH
-
-```bash
-ssh-keygen -t ed25519 -C "ваш@email"
-cat ~/.ssh/id_ed25519.pub
-```
-
-Скопируйте вывод в GitHub → Settings → SSH and GPG keys → New SSH key.
-Проверка: `ssh -T git@github.com` должен поздороваться по имени.
-
-## Про `make`
-
-В методичках команды даны через `make` (`make train`, `make test`).
-На Windows `make` не установлен — есть два пути:
-
-1. Поставить: `winget install ezwinports.make`
-2. Или открывать `Makefile` и выполнять команду из нужной цели вручную —
-   там всегда одна-две строки.
-
-## Частые проблемы
-
-| Симптом | Причина | Решение |
-|---|---|---|
-| `pip` ставит пакеты «мимо» проекта | venv не активирован | активируйте, проверьте `which python` / `where python` |
-| `ModuleNotFoundError: src` | запуск из другой папки | запускайте из корня проекта, через `python -m src.train` |
-| Docker: `permission denied` | пользователь не в группе docker (Linux) | `sudo usermod -aG docker $USER`, перелогиниться |
-| Docker Desktop не стартует (Windows) | выключен WSL 2 / виртуализация | `wsl --install`, включить VT-x в BIOS |
-| `dvc push` виснет | нет доступа к remote | занятие 4, раздел про локальный remote |
-| Долгая установка `mlflow` | тянет много зависимостей | это нормально, 3–5 минут в первый раз |
+Теперь переходи к [HOW_TO_SUBMIT_LABS.md](../HOW_TO_SUBMIT_LABS.md) и начинай первую лабу!

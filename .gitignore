@@ -44,11 +44,24 @@ mlruns/
 # Teacher-only materials (not for students)
 COURSE_READY_CHECKLIST.md
 docs/teacher-guide.md
-docs/TEACHER_*.md
+docs/TEACHER_*
 docs/lecture-00-helper-notes.md
 docs/lecture-00-introduction.md
 docs/TOOLS_detailed-guide.md
-docs/TEACHER_track-students.md
+lessons/*/plan.md
+lessons/plan.md
+
+# Генераторы демонстраций и эталон первой лабораторной.
+# demo/after-lesson-01/ — это готовое решение занятия 1 (train.py,
+# features.py, PROBLEMS.md, EXPERIMENTS.md). Студентам видеть нельзя.
+demo/
+tools/
+
+# Эталонное решение всего курса — ответы ко всем лабораторным.
+# Живёт в приватном репозитории alsu124/mlops-deploy-course-reference,
+# локальная копия остаётся у преподавателя, но в публичный репозиторий
+# не выкладывается.
+reference-project/
 
 # Bot and internal tools (not for public repo)
 /bot/
@@ -62,3 +75,13 @@ bot/
 # Temporary
 *.tmp
 .cache/
+data/students.json
+bot.log
+bot/admins.json
+
+# Teacher-only documentation
+docs/TEACHER_*.md
+docs/TEACHER_*.html
+docs/workflow.md
+bot/README_TEACHER.md
+lessons/*/plan.md

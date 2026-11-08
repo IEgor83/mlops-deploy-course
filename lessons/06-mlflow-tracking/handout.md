@@ -22,13 +22,19 @@ mlflow server --host 127.0.0.1 --port 5000 \
 
 Откройте http://localhost:5000 — увидите пустой список экспериментов.
 
-Добавьте в `.gitignore`:
+> ⚠️ **На macOS порт 5000 занят системой.** Его слушает Control Center —
+> это приёмник AirPlay. Вы получите `Address already in use` либо, что
+> коварнее, браузер откроет ответ AirPlay вместо MLflow.
+>
+> Два выхода:
+> * System Settings → General → AirDrop & Handoff → выключить AirPlay Receiver;
+> * либо занять другой порт: `--port 5001`, и тогда в `params.yaml`
+>   написать `tracking_uri: http://localhost:5001`.
+>
+> Проверить, кто занял порт: `lsof -nP -iTCP:5000 -sTCP:LISTEN`
 
-```
-mlflow.db
-mlartifacts/
-mlruns/
-```
+Проверьте, что в `.gitignore` уже есть строки `mlflow.db`, `mlartifacts/`
+и `mlruns/` — в шаблоне они настроены. Если работаете не из шаблона, добавьте.
 
 ## Шаг 2. Настройки в конфиг
 
@@ -76,13 +82,29 @@ def log_to_mlflow(params, pipe, metrics, input_example) -> None:
 
 ## Шаг 4. Выключатель
 
-Обучение не должно намертво зависеть от трекера. Добавьте флаг:
+Обучение не должно намертво зависеть от трекера. Добавьте флаг.
+
+Разбора аргументов в `src/train.py` пока нет — его нужно создать.
+В начало `main()`:
 
 ```python
-parser.add_argument("--no-mlflow", action="store_true")
-...
-if params["mlflow"]["enabled"] and not args.no_mlflow:
-    log_to_mlflow(params, pipe, metrics, train_df[cols].head(5))
+import argparse
+
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--no-mlflow", action="store_true",
+                        help="обучить без логирования в MLflow")
+    args = parser.parse_args()
+
+    params = load_params()
+    ...
+```
+
+А в конце `main()`, после того как метрики посчитаны и модель сохранена:
+
+```python
+    if params["mlflow"]["enabled"] and not args.no_mlflow:
+        log_to_mlflow(params, pipe, metrics, train_df[cols].head(5))
 ```
 
 И правьте `dvc.yaml`, стадию train:
@@ -126,8 +148,9 @@ matplotlib.use("Agg")          # без этого упадёт в среде б
 import matplotlib.pyplot as plt
 from sklearn.metrics import RocCurveDisplay
 
+# val_df[TARGET] и proba — те же переменные, по которым считаются метрики
 fig, ax = plt.subplots(figsize=(5, 5))
-RocCurveDisplay.from_predictions(y_val, val_proba, ax=ax)
+RocCurveDisplay.from_predictions(val_df[TARGET], proba, ax=ax)
 fig.savefig("reports/roc_curve.png", dpi=100, bbox_inches="tight")
 mlflow.log_artifact("reports/roc_curve.png")
 plt.close(fig)
@@ -143,7 +166,7 @@ plt.close(fig)
 
 ```python
 from sklearn.metrics import precision_recall_curve
-prec, rec, thr = precision_recall_curve(y_val, val_proba)
+prec, rec, thr = precision_recall_curve(val_df[TARGET], proba)
 f1 = 2 * prec * rec / (prec + rec + 1e-9)
 best = thr[f1[:-1].argmax()]
 print("лучший порог:", round(float(best), 3))
@@ -157,6 +180,44 @@ print("лучший порог:", round(float(best), 3))
 уходящего клиента или потратить скидку на того, кто и так остался».
 Занесите своё обоснование в `EXPERIMENTS.md`.
 
+## Шаг 8. Таблица лидеров из MLflow
+
+Руками таблицу экспериментов вы больше не ведёте — но и лазить в UI
+каждый раз, когда нужно вспомнить лучший прогон, неудобно. Тем более
+что проверяющему ваш UI недоступен.
+
+Напишите `scripts/leaderboard.py`, который забирает прогоны через API
+и кладёт отчёт в репозиторий:
+
+```python
+import mlflow
+
+runs = mlflow.search_runs(
+    experiment_names=[cfg["experiment_name"]],
+    order_by=["metrics.roc_auc DESC"],
+    max_results=5,
+)
+```
+
+В `reports/LEADERBOARD.md` должно попасть по каждому прогону:
+модель, ключевые параметры, ROC-AUC, PR-AUC, `git_sha` и дата.
+
+Два требования, которые делают отчёт полезным:
+
+**Отмечайте текущего чемпиона.** Тот прогон, чья модель сейчас в реестре,
+помечайте в таблице — иначе непонятно, что из перечисленного работает.
+
+**Показывайте, чего не хватает.** Если у прогона нет `git_sha`, ставьте
+в таблице `—`, а не пропускайте столбец. Дыра в отчёте — сигнал, что прогон
+невоспроизводим, и её должно быть видно.
+
+Добавьте цель в `Makefile`:
+
+```make
+leaderboard:     ## Собрать таблицу лидеров из MLflow
+	$(PY) scripts/leaderboard.py
+```
+
 ## Что сдать
 
 - [ ] MLflow поднят, логирование работает
@@ -164,15 +225,31 @@ print("лучший порог:", round(float(best), 3))
 - [ ] Флаг `--no-mlflow` работает, `dvc.yaml` использует его
 - [ ] Порог подобран по валидации, обоснование записано
 - [ ] Скриншот UI со сравнением прогонов — в `reports/`
+- [ ] `scripts/leaderboard.py` и `reports/LEADERBOARD.md` с топ-5 прогонов
+- [ ] В таблице есть `git_sha`, отмечен текущий чемпион
 
 ## Домашнее задание (1,5–2 ч)
 
 1. Доведите число прогонов до 10+, покрыв все три алгоритма
    и минимум по три набора гиперпараметров.
 2. Добавьте логирование матрицы ошибок как артефакта.
-3. Залогируйте версию данных: `mlflow.set_tag("data_md5", ...)`,
-   взяв хеш из `data/raw/churn.csv.dvc`. Объясните в `README.md`,
-   зачем это нужно, если git sha уже логируется.
+3. Залогируйте версию данных: `mlflow.set_tag("data_md5", ...)`.
+   Хеш лежит в `dvc.lock` — `.dvc`-файлы исчезли на занятии 5, когда
+   выходы описали в пайплайне:
+
+   ```python
+   import yaml
+
+   def data_md5(path: str = "data/raw/churn.csv") -> str:
+       with open(resolve("dvc.lock"), encoding="utf-8") as f:
+           lock = yaml.safe_load(f)
+       for out in lock["stages"]["generate"]["outs"]:
+           if out["path"] == path:
+               return out["md5"]
+       return "unknown"
+   ```
+
+   Объясните в `README.md`, зачем это нужно, если git sha уже логируется.
 4. Напишите в `README.md` раздел «Выбор модели»: какая выбрана,
    по какой метрике, какой порог и почему.
 
